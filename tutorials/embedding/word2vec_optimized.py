@@ -54,7 +54,7 @@ flags.DEFINE_string(
     "See README.md for how to get 'questions-words.txt'.")
 flags.DEFINE_integer("embedding_size", 200, "The embedding dimension size.")
 flags.DEFINE_integer(
-    "epochs_to_train", 15,
+    "epochs_to_train", 12,
     "Number of epochs to train. Each epoch processes the training data once "
     "completely.")
 flags.DEFINE_float("learning_rate", 0.025, "Initial learning rate.")
@@ -76,7 +76,7 @@ flags.DEFINE_float("subsample", 1e-3,
                    "with higher frequency will be randomly down-sampled. Set "
                    "to 0 to disable.")
 flags.DEFINE_boolean(
-    "interactive", False,
+    "interactive", True,
     "If true, enters an IPython interactive session to play with the trained "
     "model. E.g., try model.analogy(b'france', b'paris', b'russia') and "
     "model.nearby([b'proton', b'elephant', b'maxwell'])")
@@ -146,6 +146,7 @@ class Word2Vec(object):
     self.build_graph()
     self.build_eval_graph()
     self.save_vocab()
+    self.do_steve_stuff()
 
   def read_analogies(self):
     """Reads through the analogy question file.
@@ -213,7 +214,7 @@ class Word2Vec(object):
     lr = opts.learning_rate * tf.maximum(
         0.0001,
         1.0 - tf.cast(total_words_processed, tf.float32) / words_to_train)
-
+ 
     # Training nodes.
     inc = global_step.assign_add(1)
     with tf.control_dependencies([inc]):
@@ -243,11 +244,19 @@ class Word2Vec(object):
         f.write("%s %d\n" % (vocab_word,
                              opts.vocab_counts[i]))
 
+  def do_steve_stuff(self):
+    """bugbug you are here"""
+    opts = self._options
+    with open(os.path.join(opts.save_path, "steve.txt"), "w") as f:
+      f.write("bugbug you are here")
+
+
   def build_eval_graph(self):
     """Build the evaluation graph."""
     # Eval graph
     opts = self._options
 
+    
     # Each analogy task is to predict the 4th word (d) given three
     # words: a, b, c.  E.g., a=italy, b=rome, c=france, we should
     # predict d=paris.
@@ -271,6 +280,7 @@ class Word2Vec(object):
     # We expect that d's embedding vectors on the unit hyper-sphere is
     # near: c_emb + (b_emb - a_emb), which has the shape [N, emb_dim].
     target = c_emb + (b_emb - a_emb)
+    #bugbug you are hereprint("target=",repr(target))
 
     # Compute cosine distance between each pair of target and vocab.
     # dist has shape [N, vocab_size].
@@ -296,6 +306,8 @@ class Word2Vec(object):
     self._nearby_word = nearby_word
     self._nearby_val = nearby_val
     self._nearby_idx = nearby_idx
+
+    self._nearby_emb = nearby_emb  #bugbug how to output this
 
     # Properly initialize all variables.
     tf.global_variables_initializer().run()
@@ -394,8 +406,11 @@ class Word2Vec(object):
   def nearby(self, words, num=20):
     """Prints out nearby words given a list of words."""
     ids = np.array([self._word2id.get(x, 0) for x in words])
-    vals, idx = self._session.run(
-        [self._nearby_val, self._nearby_idx], {self._nearby_word: ids})
+    vals, idx, emb = self._session.run(
+        [self._nearby_val, self._nearby_idx, self._nearby_emb], {self._nearby_word: ids})
+    
+    print(repr(emb))
+    
     for i in xrange(len(words)):
       print("\n%s\n=====================================" % (words[i]))
       for (neighbor, distance) in zip(idx[i, :num], vals[i, :num]):
